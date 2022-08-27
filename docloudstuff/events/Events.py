@@ -5,7 +5,12 @@ import pulumi_aws as aws
 
 class Events:
     """
+    Base Events class
 
+    Args:
+        name (str): unique name for the object
+        description (str): Optional - Description of the events object
+        event_buss_name (str): Optional - Name of the event bus.  If none, will specify the default bus.
     """
 
     def __init__(self, name: str, description: Optional [str] = None, event_bus_name: Optional[str] = "default"):
@@ -15,7 +20,9 @@ class Events:
 
 
 class Rule(Events):
-    """_summary_
+    """
+    Rules class
+    Inherits the base Events class
 
     Args:
         Events (_type_): _description_
@@ -34,7 +41,9 @@ class Rule(Events):
         )
 
 class Target(Events):
-    """_summary_
+    """
+    Target class
+    Inherits the base Events class
 
     Args:
         Events (_type_): _description_
