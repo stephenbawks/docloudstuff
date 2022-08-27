@@ -1,0 +1,12 @@
+{
+    "recommendations": [
+        "oderwat.indent-rainbow",
+        "redhat.vscode-yaml",
+        "mohsen1.prettify-json",
+        "ms-python.python",
+        "byi8220.indented-block-highlighting",
+        "DavidAnson.vscode-markdownlint",
+        "ms-vscode.makefile-tools",
+        "njpwerner.autodocstring"
+    ]
+}
