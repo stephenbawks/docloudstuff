@@ -1,3 +1,6 @@
+"""
+Events module
+"""
 from typing import Optional
 import pulumi
 import pulumi_aws as aws
@@ -10,7 +13,10 @@ class Events:
     Args:
         name (str): unique name for the object
         description (str): Optional - Description of the events object
-        event_buss_name (str): Optional - Name of the event bus.  If none, will specify the default bus.
+        event_bus_name (str): Optional - Name of the event bus.  If none, will specify the default bus.
+
+    Examples:
+    >>> my_service = Events(name="myAwesomeService", description="Distributes Awesome", event_bus_name="event-bus-to-somewhere"
     """
 
     def __init__(self, name: str, description: Optional [str] = None, event_bus_name: Optional[str] = "default"):
@@ -25,7 +31,7 @@ class Rule(Events):
     Inherits the base Events class
 
     Args:
-        Events (_type_): _description_
+        event_pattern (str): Event Pattern
     """
     def __init__(self, name: str, event_pattern: str, description: Optional[str] = None, event_bus_name: Optional[str] = "default"):
         super().__init__(name, description, event_bus_name)
@@ -46,7 +52,11 @@ class Target(Events):
     Inherits the base Events class
 
     Args:
-        Events (_type_): _description_
+        rule_name (str): Unique name for the Event Rule
+        target_arn (str): AWS ARN that the Event Rule will target
+
+    Examples:
+
     """
     def __init__(self, name: str, rule_name: str, target_arn: str, description: Optional[str] = None, event_bus_name: Optional[str] = "default"):
         super().__init__(name, description, event_bus_name)

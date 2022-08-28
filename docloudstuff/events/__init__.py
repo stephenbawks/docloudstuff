@@ -1,8 +1,8 @@
-from .Events import Events, Rule, Target, RuleTarget
-from .EventBus import Bus
+from .events import Events, Rule, Target, RuleTarget
+from .event_bus import Bus
 
 __all__ = [
-    "Events",
+    "events",
     "Rule",
     "Target",
     "RuleTarget",
