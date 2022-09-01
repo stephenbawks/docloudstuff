@@ -254,7 +254,7 @@ class Events:
                     arn = target_arn,
                     event_bus_name = event_bus_name,
                     rule = rule.name,
-                    role_arn = event_bus_role,
+                    role_arn = event_bus_role.arn,
                     input_transformer = input_transformer,
                     retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
                         maximum_event_age_in_seconds = max_event_age_seconds,
@@ -308,7 +308,7 @@ class Events:
                     arn = target_arn,
                     event_bus_name = event_bus_name,
                     rule = rule.name,
-                    role_arn = destination_role,
+                    role_arn = destination_role.arn,
                     input_transformer = input_transformer,
                     retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
                         maximum_event_age_in_seconds = max_event_age_seconds,
@@ -361,7 +361,7 @@ class Events:
                 arn = target_arn,
                 event_bus_name = event_bus_name,
                 rule = rule.name,
-                role_arn = step_function_role,
+                role_arn = step_function_role.arn,
                 input_transformer = input_transformer,
                 retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
                     maximum_event_age_in_seconds = max_event_age_seconds,
@@ -414,7 +414,7 @@ class Events:
                 arn = target_arn,
                 event_bus_name = event_bus_name,
                 rule = rule.name,
-                role_arn = kinesis_role,
+                role_arn = kinesis_role.arn,
                 input_transformer = input_transformer,
                 retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
                     maximum_event_age_in_seconds = max_event_age_seconds,
@@ -458,7 +458,7 @@ class Events:
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
             queue_role = aws.iam.Role(
-                f"{name}Role",
+                f"{name}-role",
                 inline_policies = [aws.iam.RoleInlinePolicyArgs(
                     name = f"{name}-InvokeStepFunction",
                     policy = queue_policy.json
@@ -472,7 +472,7 @@ class Events:
                 arn = target_arn,
                 event_bus_name = event_bus_name,
                 rule = rule.name,
-                role_arn = queue_role,
+                role_arn = queue_role.arn,
                 input_transformer = input_transformer,
                 retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
                     maximum_event_age_in_seconds = max_event_age_seconds,
