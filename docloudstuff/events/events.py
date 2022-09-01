@@ -1,10 +1,11 @@
+# pylint: disable=unused-variable, too-many-arguments
+
 """
-Events module
+Do Cloud Stuff - Events module
 """
 import json
 from typing import Optional
 import warnings
-from pydantic import BaseModel
 import pulumi
 import pulumi_aws as aws
 
@@ -15,11 +16,16 @@ class Events:
     """
 
     @staticmethod
+    def _dict_to_json(value: dict, value_name: str) -> str:
+        warnings.warn(f"You entered a dictionary for {value_name} an it should have been a string. Converting it for you.")
+        return json.dumps(value)
+
+    @staticmethod
     def _is_json(json_to_check: str) -> bool:
         try:
             json.loads(json_to_check)
             # the string appears to be valid JSON, return True
-        except ValueError as e:
+        except ValueError as json_error:
             warnings.warn("The string you specified does not appear to be a valid JSON encoded string.")
             return False
             # the string does not appear to be valid JSON, return False
@@ -30,7 +36,7 @@ class Events:
         try:
             isinstance(dict_to_check, dict)
             # the string appears to be valid JSON, return True
-        except ValueError as e:
+        except ValueError as dict_error:
             warnings.warn("The input you specified does not appear to be a valid dictionary.")
             return False
             # the string does not appear to be valid JSON, return False
@@ -44,33 +50,32 @@ class Events:
         archive_event_pattern: Optional[dict] = None,
         schema_discoverer: Optional[bool] = False
     ):
+        """
+        Creates an Eventbridge Event Bus
+        Optionally creates an Event Archive and or an Event Schema Discoverer
 
-    """
-    Creates an Eventbridge Event Bus
-    Optionally creates an Event Archive and or an Event Schema Discoverer
+        Args:
+            name (str): Unique name that is pre-prended to name resources
+            event_archive (Optional[bool]): Optioanally create an Event Archive. Defaults to False.
+            archive_days (Optional[int]): If creating an event archive, how many days to retain messages for. Defaults to 7.
+            archive_event_pattern (Optional[str]): An event pattern to use to filter events sent to the archive. Defaults to None.
+            schema_discoverer (Optional[bool]): Optionally create a Schema Discoverer for the event bus. Defaults to False.
 
-    Args:
-        name (str): Unique name that is pre-prended to name resources
-        event_archive (Optional[bool]): Optioanally create an Event Archive. Defaults to False.
-        archive_days (Optional[int]): If creating an event archive, how many days to retain messages for. Defaults to 7.
-        archive_event_pattern (Optional[str]): An event pattern to use to filter events sent to the archive. Defaults to None.
-        schema_discoverer (Optional[bool]): Optionally create a Schema Discoverer for the event bus. Defaults to False.
-
-    Raises:
-        ValueError: Days for retention must be greater than or equal to 0
-    """
+        Raises:
+            ValueError: Days for retention must be greater than or equal to 0
+        """
 
         if event_archive and event_archive < 0:
             # If intending to create an event archive check to make sure days is not less than zero
             raise ValueError("Days for Archive Retention must be greater than or equal to 0 (zero).")
-        if event_archive and self.event_archive == 0:
+        if event_archive and event_archive == 0:
             # if intending to create an archive, warn if days is equal to zero
             warnings.warn("You enterd 0 (zero) for the amount of days to retain messages in the archive. "
                 "This will result in events being stored indefinitely so use caution.", stacklevel=2
             )
 
         # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventbus/
-        bus = aws.cloudwatch.EventBus(f"{self.name}-bus")
+        bus = aws.cloudwatch.EventBus(f"{name}-bus")
 
         pulumi.export(f"{name}-bus-arn", bus.arn)
 
@@ -110,25 +115,24 @@ class Events:
         input_paths: Optional[dict[str, str]] = None,
         input_template: Optional[str] = None,
         max_retry_attempts: Optional[int] = 185,
-        max_event_age_seconds: Optional[int] = 86400
+        max_event_age_seconds: Optional[int] = 86400,
         optional_log_group: Optional[bool] = False,
     ):
+        """
+            Creates an Eventbridge Rule and attaches a target
+            Adds addtional resources depending on the target
 
-    """
-        Creates an Eventbridge Rule and attaches a target
-        Adds addtional resources depending on the target
+        Args:
+            name (str): Unique name that is pre-prended to name resources
+            event_pattern (str): The event pattern described a JSON object.
+            target_arn (str): The ARN of the target that events will be sent to.
+            description (Optional[str]): The description of the rule.
+            event_bus_name (Optional[str]): The event bus to associate with this rule. If you omit this, the default event bus is used.
+            input_paths (Optional[dict[str, str]]): Key value pairs specified in the form of JSONPath (for example, time = $.time)
+            input_template (Optional[str]): Template to customize data sent to the target. Must be valid JSON. To send a string value, the string value must include double quotes.
+            optional_log_group (Optional[bool]): True or False.  If True, this will create a Cloudwatch Log group that can be used to troubleshoot event data.  Ideally used for debug and troubleshooting.
 
-    Args:
-        name (str): Unique name that is pre-prended to name resources
-        event_pattern (str): The event pattern described a JSON object.
-        target_arn (str): The ARN of the target that events will be sent to.
-        description (Optional[str]): The description of the rule.
-        event_bus_name (Optional[str]): The event bus to associate with this rule. If you omit this, the default event bus is used.
-        input_paths (Optional[dict[str, str]]): Key value pairs specified in the form of JSONPath (for example, time = $.time)
-        input_template (Optional[str]): Template to customize data sent to the target. Must be valid JSON. To send a string value, the string value must include double quotes.
-        optional_log_group (Optional[bool]): True or False.  If True, this will create a Cloudwatch Log group that can be used to troubleshoot event data.  Ideally used for debug and troubleshooting.
-
-    """
+        """
 
         resource_name = aws.get_arn(arn=target_arn).resource
         resource_type = aws.get_arn(arn=target_arn).service
@@ -136,7 +140,7 @@ class Events:
         # If the event is being transformed, there are two variables that are required
         # `input_paths` and `input_template`
         if input_paths and input_template:
-            if _is_json(json_to_check=input_template) and _is_dict(dict_to_check=input_paths):
+            if Events._is_json(json_to_check=input_template) and Events._is_dict(dict_to_check=input_paths):
                 # Checking to also see if input_template is a valid json string
                 input_transformer = aws.cloudwatch.EventTargetInputTransformerArgs(
                     input_paths = input_paths,
@@ -144,6 +148,11 @@ class Events:
                 )
         else:
             input_transformer = None
+
+        if isinstance(event_pattern, dict):
+            # Check to see if the event pattern was sent as a dictionary
+            # If so, do a json dump to string
+            event_pattern = Events._dict_to_json(value=event_pattern, value_name="event_pattern")
 
         # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
         rule = aws.cloudwatch.EventRule(
@@ -478,7 +487,7 @@ class Events:
         # This is typically only recommended for troubleshooting and not
         # recommended to be on all the time and defaults to only keeping
         # days worth as there can be issues with logging sensitive data.
-        if log_group:
+        if optional_log_group:
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/loggroup/
             print("Logs Target --> Creating Cloudwatch Log Group")
 
