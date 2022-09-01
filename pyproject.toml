@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "doCloudStuff"
-version = "0.1.1"
+version = "0.1.2"
 description = ""
 authors = ["Stephen Bawks <stephen@bawks.com>"]
 repository="https://github.com/stephenbawks/docloudstuff"
