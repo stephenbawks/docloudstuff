@@ -10,6 +10,31 @@ import pulumi_aws as aws
 
 
 class Events:
+    """
+    Do Cloud Stuff - Events Module
+    """
+
+    @staticmethod
+    def _is_json(json_to_check: str) -> bool:
+        try:
+            json.loads(json_to_check)
+            # the string appears to be valid JSON, return True
+        except ValueError as e:
+            warnings.warn("The string you specified does not appear to be a valid JSON encoded string.")
+            return False
+            # the string does not appear to be valid JSON, return False
+        return True
+
+    @staticmethod
+    def _is_dict(dict_to_check: dict) -> bool:
+        try:
+            isinstance(dict_to_check, dict)
+            # the string appears to be valid JSON, return True
+        except ValueError as e:
+            warnings.warn("The input you specified does not appear to be a valid dictionary.")
+            return False
+            # the string does not appear to be valid JSON, return False
+        return True
 
 
     @classmethod
@@ -82,11 +107,11 @@ class Events:
         target_arn: str,
         description: Optional[str] = None,
         event_bus_name: Optional[str] = "default",
-        optional_log_group: Optional[bool] = False,
         input_paths: Optional[dict[str, str]] = None,
         input_template: Optional[str] = None,
         max_retry_attempts: Optional[int] = 185,
         max_event_age_seconds: Optional[int] = 86400
+        optional_log_group: Optional[bool] = False,
     ):
 
     """
@@ -94,11 +119,31 @@ class Events:
         Adds addtional resources depending on the target
 
     Args:
-        Events (_type_): _description_
+        name (str): Unique name that is pre-prended to name resources
+        event_pattern (str): The event pattern described a JSON object.
+        target_arn (str): The ARN of the target that events will be sent to.
+        description (Optional[str]): The description of the rule.
+        event_bus_name (Optional[str]): The event bus to associate with this rule. If you omit this, the default event bus is used.
+        input_paths (Optional[dict[str, str]]): Key value pairs specified in the form of JSONPath (for example, time = $.time)
+        input_template (Optional[str]): Template to customize data sent to the target. Must be valid JSON. To send a string value, the string value must include double quotes.
+        optional_log_group (Optional[bool]): True or False.  If True, this will create a Cloudwatch Log group that can be used to troubleshoot event data.  Ideally used for debug and troubleshooting.
+
     """
 
         resource_name = aws.get_arn(arn=target_arn).resource
         resource_type = aws.get_arn(arn=target_arn).service
+
+        # If the event is being transformed, there are two variables that are required
+        # `input_paths` and `input_template`
+        if input_paths and input_template:
+            if _is_json(json_to_check=input_template) and _is_dict(dict_to_check=input_paths):
+                # Checking to also see if input_template is a valid json string
+                input_transformer = aws.cloudwatch.EventTargetInputTransformerArgs(
+                    input_paths = input_paths,
+                    input_template = input_template
+                )
+        else:
+            input_transformer = None
 
         # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
         rule = aws.cloudwatch.EventRule(
@@ -111,16 +156,6 @@ class Events:
         )
 
         pulumi.export(f"{name}-rule-arn", rule.arn)
-
-        # If the event is being transformed, there are two variables that are required
-        # `input_paths` and `input_transformer`
-        if input_paths and input_template:
-            input_transformer = aws.cloudwatch.EventTargetInputTransformerArgs(
-                input_paths = input_paths,
-                input_template = input_template
-            )
-        else:
-            input_transformer = None
 
 
         def general_event():
