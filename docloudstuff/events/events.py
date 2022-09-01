@@ -429,6 +429,9 @@ class Events:
             # Additional Logic for Lambda as a Target
             print("SQS Target --> Send Message to Queue")
 
+
+            queue_url = aws.sqs.get_queue(name=resource_name).url
+
             assume_role_policy = aws.iam.get_policy_document(statements=[
                 aws.iam.GetPolicyDocumentStatementArgs(
                     actions = ["sts:AssumeRole"],
@@ -456,14 +459,12 @@ class Events:
                 ]
             )
 
-            # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
-            queue_role = aws.iam.Role(
-                f"{name}-role",
-                inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                    name = f"{name}-InvokeStepFunction",
-                    policy = queue_policy.json
-                )],
-                assume_role_policy = assume_role_policy.json
+            # https://www.pulumi.com/registry/packages/aws/api-docs/sqs/queuepolicy/
+            aws.sqs.QueuePolicy(
+                f"{name}-queue-policy",
+                queue_url=queue_url,
+                policy=queue_policy.json,
+                opts = pulumi.ResourceOptions(parent=rule)
             )
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
@@ -472,7 +473,6 @@ class Events:
                 arn = target_arn,
                 event_bus_name = event_bus_name,
                 rule = rule.name,
-                role_arn = queue_role.arn,
                 input_transformer = input_transformer,
                 retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
                     maximum_event_age_in_seconds = max_event_age_seconds,
@@ -480,8 +480,6 @@ class Events:
                 ),
                 opts = pulumi.ResourceOptions(parent=rule)
             )
-
-            pulumi.export(f"{name}-iam-role-arn", queue_role.arn)
 
         # Conditional add a Cloudwatch Log group and output events to it
         # This is typically only recommended for troubleshooting and not
