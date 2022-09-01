@@ -1,92 +1,82 @@
 """
 Events module
 """
+import json
 from typing import Optional
+import warnings
+from pydantic import BaseModel
 import pulumi
 import pulumi_aws as aws
 
 
 class Events:
+
+
+    @classmethod
+    def create_bus(cls, name: str,
+        event_archive: Optional[bool] = False,
+        archive_days: Optional[int] = 7,
+        archive_event_pattern: Optional[dict] = None,
+        schema_discoverer: Optional[bool] = False
+    ):
+
     """
-    Base Events class
+    Creates an Eventbridge Event Bus
+    Optionally creates an Event Archive and or an Event Schema Discoverer
 
     Args:
-        name (str): unique name for the object
-        description (str): Optional - Description of the events object
-        event_bus_name (str): Optional - Name of the event bus.  If none, will specify the default bus.
+        name (str): Unique name that is pre-prended to name resources
+        event_archive (Optional[bool]): Optioanally create an Event Archive. Defaults to False.
+        archive_days (Optional[int]): If creating an event archive, how many days to retain messages for. Defaults to 7.
+        archive_event_pattern (Optional[str]): An event pattern to use to filter events sent to the archive. Defaults to None.
+        schema_discoverer (Optional[bool]): Optionally create a Schema Discoverer for the event bus. Defaults to False.
 
-    Examples:
-    >>> my_service = Events(name="myAwesomeService", description="Distributes Awesome", event_bus_name="event-bus-to-somewhere"
+    Raises:
+        ValueError: Days for retention must be greater than or equal to 0
     """
 
-    def __init__(self, name: str, description: Optional [str] = None, event_bus_name: Optional[str] = "default"):
-        self.name = name
-        self.description = description
-        self.event_bus_name = event_bus_name
+        if event_archive and event_archive < 0:
+            # If intending to create an event archive check to make sure days is not less than zero
+            raise ValueError("Days for Archive Retention must be greater than or equal to 0 (zero).")
+        if event_archive and self.event_archive == 0:
+            # if intending to create an archive, warn if days is equal to zero
+            warnings.warn("You enterd 0 (zero) for the amount of days to retain messages in the archive. "
+                "This will result in events being stored indefinitely so use caution.", stacklevel=2
+            )
+
+        # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventbus/
+        bus = aws.cloudwatch.EventBus(f"{self.name}-bus")
+
+        pulumi.export(f"{name}-bus-arn", bus.arn)
+
+        if event_archive:
+            if isinstance(archive_event_pattern, dict):
+                # Checking to see if the archive pattern was sent as a dict, if so dump to string
+                warnings.warn("The archive event pattern is a dictionary and will be converted to a string.", stacklevel=2)
+                archive_event_pattern = json.dumps(archive_event_pattern)
+
+            event_archive = aws.cloudwatch.EventArchive(f"{name}-event-archive",
+                description=f"Archived events from {name}-bus",
+                event_source_arn=bus.arn,
+                retention_days=archive_days,
+                event_pattern=archive_event_pattern,
+                opts = pulumi.ResourceOptions(parent=bus)
+            )
+
+            pulumi.export(f"{name}-event-archive-arn", event_archive.arn)
+
+        if schema_discoverer:
+            # https://www.pulumi.com/registry/packages/aws/api-docs/schemas/discoverer/
+            bus_schema_discoverer = aws.schemas.Discoverer(f"{name}-schema-discoverer",
+                source_arn=bus.arn,
+                description=f"Schema Discover for the {name}-bus",
+            )
+
+            pulumi.export(f"{name}-schema-discoverer-arn", bus_schema_discoverer.arn)
 
 
-class Rule(Events):
-    """
-    Rules class
-    Inherits the base Events class
-
-    Args:
-        event_pattern (str): Event Pattern
-    """
-    def __init__(self, name: str, event_pattern: str, description: Optional[str] = None, event_bus_name: Optional[str] = "default"):
-        super().__init__(name, description, event_bus_name)
-        self.event_pattern = event_pattern
-
-        aws.cloudwatch.EventRule(
-            f"{self.name}-EventRule",
-            name = self.name,
-            description = self.description,
-            event_bus_name = self.event_bus_name,
-            is_enabled = True,
-            event_pattern = self.event_pattern
-        )
-
-class Target(Events):
-    """
-    Target class
-    Inherits the base Events class
-
-    Args:
-        rule_name (str): Unique name for the Event Rule
-        target_arn (str): AWS ARN that the Event Rule will target
-
-    Examples:
-
-    """
-    def __init__(self, name: str, rule_name: str, target_arn: str, description: Optional[str] = None, event_bus_name: Optional[str] = "default"):
-        super().__init__(name, description, event_bus_name)
-        self.rule_name = rule_name
-        self.target_arn =  target_arn
-        self.resource_name = aws.get_arn(arn=target_arn).resource
-        self.resource_type = aws.get_arn(arn=target_arn).service
-
-        # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
-        aws.cloudwatch.EventTarget(
-            f"{self.name}RuleTarget",
-            arn=self.target_arn,
-            event_bus_name=self.event_bus_name,
-            rule=self.rule_name
-        )
-
-class RuleTarget(Events):
-    """
-        Creates an Eventbridge Rule and attaches a target
-        Adds addtional resources depending on the target
-
-    URLs:
-        https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html#arns-syntax
-        arn:partition:service:region:account-id:resource-id
-        arn:partition:service:region:account-id:resource-type/resource-id
-
-    Args:
-        Events (_type_): _description_
-    """
-    def __init__(self,
+    @classmethod
+    def create_rule_target(cls,
         name: str,
         event_pattern: str,
         target_arn: str,
@@ -97,35 +87,34 @@ class RuleTarget(Events):
         input_template: Optional[str] = None,
         max_retry_attempts: Optional[int] = 185,
         max_event_age_seconds: Optional[int] = 86400
-        ):
+    ):
 
-        super().__init__(name, description, event_bus_name)
-        self.event_pattern = event_pattern
-        self.target_arn =  target_arn
-        self.resource_name = aws.get_arn(arn=target_arn).resource
-        self.resource_type = aws.get_arn(arn=target_arn).service
-        self.log_group = optional_log_group
-        self.input_paths = input_paths
-        self.input_template = input_template
-        self.max_retry_attempts = max_retry_attempts
-        self.max_event_age_seconds = max_event_age_seconds
+    """
+        Creates an Eventbridge Rule and attaches a target
+        Adds addtional resources depending on the target
 
+    Args:
+        Events (_type_): _description_
+    """
+
+        resource_name = aws.get_arn(arn=target_arn).resource
+        resource_type = aws.get_arn(arn=target_arn).service
 
         # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
         rule = aws.cloudwatch.EventRule(
-            f"{self.name}-EventRule",
-            name = self.name,
-            description = self.description,
-            event_bus_name = self.event_bus_name,
+            f"{name}-EventRule",
+            name = name,
+            description = description,
+            event_bus_name = event_bus_name,
             is_enabled = True,
-            event_pattern = self.event_pattern
+            event_pattern = event_pattern
         )
 
-        pulumi.export(f"{self.name}-rule-arn", rule.arn)
+        pulumi.export(f"{name}-rule-arn", rule.arn)
 
         # If the event is being transformed, there are two variables that are required
         # `input_paths` and `input_transformer`
-        if self.input_paths and self.input_template:
+        if input_paths and input_template:
             input_transformer = aws.cloudwatch.EventTargetInputTransformerArgs(
                 input_paths = input_paths,
                 input_template = input_template
@@ -137,14 +126,14 @@ class RuleTarget(Events):
         def general_event():
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
-                f"{self.name}-RuleTarget",
-                arn = self.target_arn,
-                event_bus_name = self.event_bus_name,
+                f"{name}-RuleTarget",
+                arn = target_arn,
+                event_bus_name = event_bus_name,
                 rule = rule.name,
                 input_transformer = input_transformer,
                 retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
-                    maximum_event_age_in_seconds = self.max_event_age_seconds,
-                    maximum_retry_attempts = self.max_retry_attempts
+                    maximum_event_age_in_seconds = max_event_age_seconds,
+                    maximum_retry_attempts = max_retry_attempts
                 ),
                 opts = pulumi.ResourceOptions(parent=rule)
             )
@@ -155,23 +144,23 @@ class RuleTarget(Events):
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/lambda/permission/
             aws.lambda_.Permission(
-                f"{self.name}-LambdaPermission",
+                f"{name}-LambdaPermission",
                 action = "lambda:InvokeFunction",
-                function = self.resource_name,
+                function = resource_name,
                 principal = "events.amazonaws.com",
                 source_arn = rule.arn,
                 opts = pulumi.ResourceOptions(parent=rule)
             )
 
             aws.cloudwatch.EventTarget(
-                f"{self.name}-RuleTarget",
-                arn = self.target_arn,
-                event_bus_name = self.event_bus_name,
+                f"{name}-RuleTarget",
+                arn = target_arn,
+                event_bus_name = event_bus_name,
                 rule = rule.arn,
                 input_transformer = input_transformer,
                 retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
-                    maximum_event_age_in_seconds = self.max_event_age_seconds,
-                    maximum_retry_attempts = self.max_retry_attempts
+                    maximum_event_age_in_seconds = max_event_age_seconds,
+                    maximum_retry_attempts = max_retry_attempts
                 ),
                 opts = pulumi.ResourceOptions(parent=rule)
             )
@@ -179,7 +168,7 @@ class RuleTarget(Events):
         def create_events_event():
 
             # This could be an API Destination or trying to send to another Eventbridge
-            if self.resource_name.startswith("event-bus"):
+            if resource_name.startswith("event-bus"):
                 # Additional Logic for another Event Bus as a Target
                 print("Event Bus Target --> Creating IAM Role")
 
@@ -200,16 +189,16 @@ class RuleTarget(Events):
                             actions = [
                                 "events:PutEvents"
                             ],
-                            resources = [self.target_arn]
+                            resources = [target_arn]
                         )
                     ]
                 )
 
                 # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
                 event_bus_role = aws.iam.Role(
-                    f"{self.name}-Role",
+                    f"{name}-Role",
                     inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                        name = f"{self.name}-PutEventBus",
+                        name = f"{name}-PutEventBus",
                         policy = event_bus_policy.json
                     )],
                     assume_role_policy = assume_role_policy.json
@@ -217,20 +206,20 @@ class RuleTarget(Events):
 
                 # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
                 aws.cloudwatch.EventTarget(
-                    f"{self.name}-RuleTarget",
-                    arn = self.target_arn,
-                    event_bus_name = self.event_bus_name,
+                    f"{name}-RuleTarget",
+                    arn = target_arn,
+                    event_bus_name = event_bus_name,
                     rule = rule.name,
                     role_arn = event_bus_role,
                     input_transformer = input_transformer,
                     retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
-                        maximum_event_age_in_seconds = self.max_event_age_seconds,
-                        maximum_retry_attempts = self.max_retry_attempts
+                        maximum_event_age_in_seconds = max_event_age_seconds,
+                        maximum_retry_attempts = max_retry_attempts
                     ),
                     opts = pulumi.ResourceOptions(parent=rule)
                 )
 
-                pulumi.export(f"{self.name}-iam-role-arn", event_bus_role.arn)
+                pulumi.export(f"{name}-iam-role-arn", event_bus_role.arn)
 
             else:
                 # Additional Logic for API Destination as a Target
@@ -254,16 +243,16 @@ class RuleTarget(Events):
                             actions = [
                                 "events:InvokeApiDestination"
                             ],
-                            resources = [self.target_arn]
+                            resources = [target_arn]
                         )
                     ]
                 )
 
                 # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
                 destination_role = aws.iam.Role(
-                    f"{self.name}Role",
+                    f"{name}Role",
                     inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                        name = f"{self.name}-InvokeApiDestination",
+                        name = f"{name}-InvokeApiDestination",
                         policy = api_destination_policy.json
                     )],
                     assume_role_policy = assume_role_policy.json
@@ -271,20 +260,20 @@ class RuleTarget(Events):
 
                 # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
                 aws.cloudwatch.EventTarget(
-                    f"{self.name}RuleTarget",
-                    arn = self.target_arn,
-                    event_bus_name = self.event_bus_name,
+                    f"{name}RuleTarget",
+                    arn = target_arn,
+                    event_bus_name = event_bus_name,
                     rule = rule.name,
                     role_arn = destination_role,
                     input_transformer = input_transformer,
                     retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
-                        maximum_event_age_in_seconds = self.max_event_age_seconds,
-                        maximum_retry_attempts = self.max_retry_attempts
+                        maximum_event_age_in_seconds = max_event_age_seconds,
+                        maximum_retry_attempts = max_retry_attempts
                     ),
                     opts = pulumi.ResourceOptions(parent=rule)
                 )
 
-                pulumi.export(f"{self.name}-iam-role-arn", destination_role.arn)
+                pulumi.export(f"{name}-iam-role-arn", destination_role.arn)
 
         def create_step_function_event():
             # Additional Logic for Lambda as a Target
@@ -307,16 +296,16 @@ class RuleTarget(Events):
                         actions = [
                             "states:StartExecution"
                         ],
-                        resources = [self.target_arn]
+                        resources = [target_arn]
                     )
                 ]
             )
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
             step_function_role = aws.iam.Role(
-                f"{self.name}Role",
+                f"{name}Role",
                 inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                    name = f"{self.name}-InvokeStepFunction",
+                    name = f"{name}-InvokeStepFunction",
                     policy = step_function_policy.json
                 )],
                 assume_role_policy = assume_role_policy.json
@@ -324,20 +313,20 @@ class RuleTarget(Events):
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
-                f"{self.name}RuleTarget",
-                arn = self.target_arn,
-                event_bus_name = self.event_bus_name,
+                f"{name}RuleTarget",
+                arn = target_arn,
+                event_bus_name = event_bus_name,
                 rule = rule.name,
                 role_arn = step_function_role,
                 input_transformer = input_transformer,
                 retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
-                    maximum_event_age_in_seconds = self.max_event_age_seconds,
-                    maximum_retry_attempts = self.max_retry_attempts
+                    maximum_event_age_in_seconds = max_event_age_seconds,
+                    maximum_retry_attempts = max_retry_attempts
                 ),
                 opts = pulumi.ResourceOptions(parent=rule)
             )
 
-            pulumi.export(f"{self.name}-iam-role-arn", step_function_role.arn)
+            pulumi.export(f"{name}-iam-role-arn", step_function_role.arn)
 
         def create_kinesis_stream_event():
             # Additional Logic for Kinesis Stream as a Target
@@ -360,16 +349,16 @@ class RuleTarget(Events):
                         actions = [
                             "kinesis:PutRecord"
                         ],
-                        resources = [self.target_arn]
+                        resources = [target_arn]
                     )
                 ]
             )
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
             kinesis_role = aws.iam.Role(
-                f"{self.name}Role",
+                f"{name}Role",
                 inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                    name = f"{self.name}-InvokePutRecordStream",
+                    name = f"{name}-InvokePutRecordStream",
                     policy = kinesis_stream_policy.json
                 )],
                 assume_role_policy = assume_role_policy.json
@@ -377,20 +366,20 @@ class RuleTarget(Events):
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
-                f"{self.name}RuleTarget",
-                arn = self.target_arn,
-                event_bus_name = self.event_bus_name,
+                f"{name}RuleTarget",
+                arn = target_arn,
+                event_bus_name = event_bus_name,
                 rule = rule.name,
                 role_arn = kinesis_role,
                 input_transformer = input_transformer,
                 retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
-                    maximum_event_age_in_seconds = self.max_event_age_seconds,
-                    maximum_retry_attempts = self.max_retry_attempts
+                    maximum_event_age_in_seconds = max_event_age_seconds,
+                    maximum_retry_attempts = max_retry_attempts
                 ),
                 opts = pulumi.ResourceOptions(parent=rule)
             )
 
-            pulumi.export(f"{self.name}-iam-role-arn", kinesis_role.arn)
+            pulumi.export(f"{name}-iam-role-arn", kinesis_role.arn)
 
         def create_queue_event():
             # Additional Logic for Lambda as a Target
@@ -413,7 +402,7 @@ class RuleTarget(Events):
                         actions = [
                             "sqs:SendMessage"
                         ],
-                        resources = [self.target_arn],
+                        resources = [target_arn],
                         conditions = [aws.iam.GetPolicyDocumentStatementConditionArgs(
                             test = "ArnEquals",
                             variable = "aws:SourceArn",
@@ -425,9 +414,9 @@ class RuleTarget(Events):
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
             queue_role = aws.iam.Role(
-                f"{self.name}Role",
+                f"{name}Role",
                 inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                    name = f"{self.name}-InvokeStepFunction",
+                    name = f"{name}-InvokeStepFunction",
                     policy = queue_policy.json
                 )],
                 assume_role_policy = assume_role_policy.json
@@ -435,49 +424,49 @@ class RuleTarget(Events):
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
-                f"{self.name}RuleTarget",
-                arn = self.target_arn,
-                event_bus_name = self.event_bus_name,
+                f"{name}-RuleTarget",
+                arn = target_arn,
+                event_bus_name = event_bus_name,
                 rule = rule.name,
                 role_arn = queue_role,
                 input_transformer = input_transformer,
                 retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
-                    maximum_event_age_in_seconds = self.max_event_age_seconds,
-                    maximum_retry_attempts = self.max_retry_attempts
+                    maximum_event_age_in_seconds = max_event_age_seconds,
+                    maximum_retry_attempts = max_retry_attempts
                 ),
                 opts = pulumi.ResourceOptions(parent=rule)
             )
 
-            pulumi.export(f"{self.name}-iam-role-arn", queue_role.arn)
+            pulumi.export(f"{name}-iam-role-arn", queue_role.arn)
 
         # Conditional add a Cloudwatch Log group and output events to it
         # This is typically only recommended for troubleshooting and not
         # recommended to be on all the time and defaults to only keeping
         # days worth as there can be issues with logging sensitive data.
-        if self.log_group:
+        if log_group:
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/loggroup/
             print("Logs Target --> Creating Cloudwatch Log Group")
 
             log_group = aws.cloudwatch.LogGroup(
-                f"/aws/events/{self.name}-logs",
+                f"/aws/events/{name}-logs",
                 retention_in_days = 1
             )
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
-                f"{self.name}-LogsRuleTarget",
+                f"{name}-LogsRuleTarget",
                 arn = log_group.arn,
-                event_bus_name = self.event_bus_name,
+                event_bus_name = event_bus_name,
                 rule = rule.name,
                 input_transformer = input_transformer,
                 retry_policy = aws.cloudwatch.EventTargetRetryPolicyArgs(
-                    maximum_event_age_in_seconds = self.max_event_age_seconds,
-                    maximum_retry_attempts = self.max_retry_attempts
+                    maximum_event_age_in_seconds = max_event_age_seconds,
+                    maximum_retry_attempts = max_retry_attempts
                 ),
                 opts = pulumi.ResourceOptions(parent=log_group)
             )
 
-            pulumi.export(f"{self.name}-logs-arn", log_group.arn)
+            pulumi.export(f"{name}-logs-arn", log_group.arn)
 
         # Dictionary used to figure out what type of event and what needs to be run
         event_dict = {
@@ -488,4 +477,4 @@ class RuleTarget(Events):
             "sqs": create_queue_event
         }
 
-        event_dict.get(self.resource_type, general_event)()
+        event_dict.get(resource_type, general_event)()
