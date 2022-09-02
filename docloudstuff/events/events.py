@@ -477,16 +477,6 @@ class Events:
 
             queue_url = aws.sqs.get_queue(name=resource_name).url
 
-            assume_role_policy = aws.iam.get_policy_document(statements=[
-                aws.iam.GetPolicyDocumentStatementArgs(
-                    actions = ["sts:AssumeRole"],
-                    principals = [aws.iam.GetPolicyDocumentStatementPrincipalArgs(
-                        type = "Service",
-                        identifiers = ["events.amazonaws.com"],
-                    )],
-                )]
-            )
-
             # https://www.pulumi.com/registry/packages/aws/api-docs/iam/getpolicydocument/
             queue_policy = aws.iam.get_policy_document(
                 statements=[
