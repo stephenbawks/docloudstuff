@@ -83,14 +83,6 @@ class Events:
                 print("The archive event pattern is a dictionary and will be converted to a string.")
                 archive_event_pattern = json.dumps(archive_event_pattern)
 
-            # event_archive = aws.cloudwatch.EventArchive(f"{name}-event-archive",
-            #     description=f"Archived events from {name}-bus",
-            #     event_source_arn=bus.arn,
-            #     retention_days=archive_days,
-            #     event_pattern=archive_event_pattern,
-            #     opts = pulumi.ResourceOptions(parent=bus)
-            # )
-
             event_archive = aws_native.events.Archive(f"{name}-event-archive",
                 description=f"Archived events from {name}-bus",
                 event_source_arn=bus.arn,
@@ -244,16 +236,6 @@ class Events:
                     ]
                 )
 
-                # # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
-                # event_bus_role = aws.iam.Role(
-                #     f"{name}-Role",
-                #     inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                #         name = f"{name}-PutEventBus",
-                #         policy = event_bus_policy.json
-                #     )],
-                #     assume_role_policy = assume_role_policy.json
-                # )
-
                 # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
                 event_bus_role = aws_native.iam.Role(
                     f"{name}-Role",
@@ -308,16 +290,6 @@ class Events:
                     ]
                 )
 
-                # # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
-                # destination_role = aws.iam.Role(
-                #     f"{name}Role",
-                #     inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                #         name = f"{name}-InvokeApiDestination",
-                #         policy = api_destination_policy.json
-                #     )],
-                #     assume_role_policy = assume_role_policy.json
-                # )
-
                 # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
                 destination_role = aws_native.iam.Role(
                     f"{name}-Role",
@@ -371,16 +343,6 @@ class Events:
                 ]
             )
 
-            # # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
-            # step_function_role = aws.iam.Role(
-            #     f"{name}Role",
-            #     inline_policies = [aws.iam.RoleInlinePolicyArgs(
-            #         name = f"{name}-InvokeStepFunction",
-            #         policy = step_function_policy.json
-            #     )],
-            #     assume_role_policy = assume_role_policy.json
-            # )
-
             # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
             step_function_role = aws_native.iam.Role(
                 f"{name}-Role",
@@ -433,16 +395,6 @@ class Events:
                     )
                 ]
             )
-
-            # # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
-            # kinesis_role = aws.iam.Role(
-            #     f"{name}Role",
-            #     inline_policies = [aws.iam.RoleInlinePolicyArgs(
-            #         name = f"{name}-InvokePutRecordStream",
-            #         policy = kinesis_stream_policy.json
-            #     )],
-            #     assume_role_policy = assume_role_policy.json
-            # )
 
             # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
             kinesis_role = aws_native.iam.Role(
@@ -529,11 +481,6 @@ class Events:
         if optional_log_group:
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/loggroup/
             print("Logs Target --> Creating Cloudwatch Log Group")
-
-            # log_group = aws.cloudwatch.LogGroup(
-            #     f"/aws/events/{name}-logs",
-            #     retention_in_days = 1
-            # )
 
             # https://www.pulumi.com/registry/packages/aws-native/api-docs/logs/loggroup/
             log_group = aws_native.cloudwatch.LogGroup(
