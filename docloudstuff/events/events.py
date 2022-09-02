@@ -5,9 +5,9 @@ Do Cloud Stuff - Events module
 """
 import json
 from typing import Optional
-import warnings
 import pulumi
 import pulumi_aws as aws
+import pulumi_aws_native as aws_native
 
 
 class Events:
@@ -17,7 +17,7 @@ class Events:
 
     @staticmethod
     def _dict_to_json(value: dict, value_name: str) -> str:
-        warnings.warn(f"You entered a dictionary for {value_name} an it should have been a string. Converting it for you.")
+        print(f"You entered a dictionary for {value_name} an it should have been a string. Converting it for you.")
         return json.dumps(value)
 
     @staticmethod
@@ -26,7 +26,7 @@ class Events:
             json.loads(json_to_check)
             # the string appears to be valid JSON, return True
         except ValueError as json_error:
-            warnings.warn("The string you specified does not appear to be a valid JSON encoded string.")
+            print("The string you specified does not appear to be a valid JSON encoded string.")
             return False
             # the string does not appear to be valid JSON, return False
         return True
@@ -37,7 +37,7 @@ class Events:
             isinstance(dict_to_check, dict)
             # the string appears to be valid JSON, return True
         except ValueError as dict_error:
-            warnings.warn("The input you specified does not appear to be a valid dictionary.")
+            print("The input you specified does not appear to be a valid dictionary.")
             return False
             # the string does not appear to be valid JSON, return False
         return True
@@ -70,9 +70,7 @@ class Events:
             raise ValueError("Days for Archive Retention must be greater than or equal to 0 (zero).")
         if event_archive and event_archive == 0:
             # if intending to create an archive, warn if days is equal to zero
-            warnings.warn("You enterd 0 (zero) for the amount of days to retain messages in the archive. "
-                "This will result in events being stored indefinitely so use caution.", stacklevel=2
-            )
+            print("You enterd 0 (zero) for the amount of days to retain messages in the archive. This will result in events being stored indefinitely so use caution.")
 
         # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventbus/
         bus = aws.cloudwatch.EventBus(f"{name}-bus")
@@ -82,10 +80,18 @@ class Events:
         if event_archive:
             if isinstance(archive_event_pattern, dict):
                 # Checking to see if the archive pattern was sent as a dict, if so dump to string
-                warnings.warn("The archive event pattern is a dictionary and will be converted to a string.", stacklevel=2)
+                print("The archive event pattern is a dictionary and will be converted to a string.")
                 archive_event_pattern = json.dumps(archive_event_pattern)
 
-            event_archive = aws.cloudwatch.EventArchive(f"{name}-event-archive",
+            # event_archive = aws.cloudwatch.EventArchive(f"{name}-event-archive",
+            #     description=f"Archived events from {name}-bus",
+            #     event_source_arn=bus.arn,
+            #     retention_days=archive_days,
+            #     event_pattern=archive_event_pattern,
+            #     opts = pulumi.ResourceOptions(parent=bus)
+            # )
+
+            event_archive = aws_native.events.Archive(f"{name}-event-archive",
                 description=f"Archived events from {name}-bus",
                 event_source_arn=bus.arn,
                 retention_days=archive_days,
@@ -238,14 +244,24 @@ class Events:
                     ]
                 )
 
-                # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
-                event_bus_role = aws.iam.Role(
+                # # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
+                # event_bus_role = aws.iam.Role(
+                #     f"{name}-Role",
+                #     inline_policies = [aws.iam.RoleInlinePolicyArgs(
+                #         name = f"{name}-PutEventBus",
+                #         policy = event_bus_policy.json
+                #     )],
+                #     assume_role_policy = assume_role_policy.json
+                # )
+
+                # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
+                event_bus_role = aws_native.iam.Role(
                     f"{name}-Role",
-                    inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                        name = f"{name}-PutEventBus",
-                        policy = event_bus_policy.json
+                    policies = [aws_native.iam.RolePolicyArgs(
+                        policy_name = f"{name}-PutEventBus",
+                        policy_document = event_bus_policy.json
                     )],
-                    assume_role_policy = assume_role_policy.json
+                    assume_role_policy_document = assume_role_policy.json
                 )
 
                 # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
@@ -292,14 +308,24 @@ class Events:
                     ]
                 )
 
-                # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
-                destination_role = aws.iam.Role(
-                    f"{name}Role",
-                    inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                        name = f"{name}-InvokeApiDestination",
-                        policy = api_destination_policy.json
+                # # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
+                # destination_role = aws.iam.Role(
+                #     f"{name}Role",
+                #     inline_policies = [aws.iam.RoleInlinePolicyArgs(
+                #         name = f"{name}-InvokeApiDestination",
+                #         policy = api_destination_policy.json
+                #     )],
+                #     assume_role_policy = assume_role_policy.json
+                # )
+
+                # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
+                destination_role = aws_native.iam.Role(
+                    f"{name}-Role",
+                    policies = [aws_native.iam.RolePolicyArgs(
+                        policy_name = f"{name}-InvokeApiDestination",
+                        policy_document = api_destination_policy.json
                     )],
-                    assume_role_policy = assume_role_policy.json
+                    assume_role_policy_document = assume_role_policy.json
                 )
 
                 # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
@@ -345,19 +371,29 @@ class Events:
                 ]
             )
 
-            # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
-            step_function_role = aws.iam.Role(
-                f"{name}Role",
-                inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                    name = f"{name}-InvokeStepFunction",
-                    policy = step_function_policy.json
+            # # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
+            # step_function_role = aws.iam.Role(
+            #     f"{name}Role",
+            #     inline_policies = [aws.iam.RoleInlinePolicyArgs(
+            #         name = f"{name}-InvokeStepFunction",
+            #         policy = step_function_policy.json
+            #     )],
+            #     assume_role_policy = assume_role_policy.json
+            # )
+
+            # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
+            step_function_role = aws_native.iam.Role(
+                f"{name}-Role",
+                policies = [aws_native.iam.RolePolicyArgs(
+                    policy_name = f"{name}-InvokeStepFunction",
+                    policy_document = step_function_policy.json
                 )],
-                assume_role_policy = assume_role_policy.json
+                assume_role_policy_document = assume_role_policy.json
             )
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
-                f"{name}RuleTarget",
+                f"{name}-RuleTarget",
                 arn = target_arn,
                 event_bus_name = event_bus_name,
                 rule = rule.name,
@@ -398,14 +434,24 @@ class Events:
                 ]
             )
 
-            # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
-            kinesis_role = aws.iam.Role(
-                f"{name}Role",
-                inline_policies = [aws.iam.RoleInlinePolicyArgs(
-                    name = f"{name}-InvokePutRecordStream",
-                    policy = kinesis_stream_policy.json
+            # # https://www.pulumi.com/registry/packages/aws/api-docs/iam/role/
+            # kinesis_role = aws.iam.Role(
+            #     f"{name}Role",
+            #     inline_policies = [aws.iam.RoleInlinePolicyArgs(
+            #         name = f"{name}-InvokePutRecordStream",
+            #         policy = kinesis_stream_policy.json
+            #     )],
+            #     assume_role_policy = assume_role_policy.json
+            # )
+
+            # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
+            kinesis_role = aws_native.iam.Role(
+                f"{name}-Role",
+                policies = [aws_native.iam.RolePolicyArgs(
+                    policy_name = f"{name}-InvokePutRecordStream",
+                    policy_document = kinesis_stream_policy.json
                 )],
-                assume_role_policy = assume_role_policy.json
+                assume_role_policy_document = assume_role_policy.json
             )
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
@@ -427,8 +473,7 @@ class Events:
 
         def create_queue_event():
             # Additional Logic for Lambda as a Target
-            print("SQS Target --> Send Message to Queue")
-
+            print("SQS Target --> Adding Queue Policy")
 
             queue_url = aws.sqs.get_queue(name=resource_name).url
 
@@ -489,8 +534,15 @@ class Events:
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/loggroup/
             print("Logs Target --> Creating Cloudwatch Log Group")
 
-            log_group = aws.cloudwatch.LogGroup(
+            # log_group = aws.cloudwatch.LogGroup(
+            #     f"/aws/events/{name}-logs",
+            #     retention_in_days = 1
+            # )
+
+            # https://www.pulumi.com/registry/packages/aws-native/api-docs/logs/loggroup/
+            log_group = aws_native.cloudwatch.LogGroup(
                 f"/aws/events/{name}-logs",
+                log_group_name = f"/aws/events/{name}-logs",
                 retention_in_days = 1
             )
 
