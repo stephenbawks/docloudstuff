@@ -484,6 +484,12 @@ class Events:
                         actions = [
                             "sqs:SendMessage"
                         ],
+                        principals=[
+                            aws.iam.GetPolicyDocumentStatementPrincipalArgs(
+                                type="Service",
+                                identifiers=["events.amazonaws.com"],
+                            )
+                        ],
                         resources = [target_arn],
                         conditions = [aws.iam.GetPolicyDocumentStatementConditionArgs(
                             test = "ArnEquals",
