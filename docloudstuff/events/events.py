@@ -483,7 +483,7 @@ class Events:
             print("Logs Target --> Creating Cloudwatch Log Group")
 
             # https://www.pulumi.com/registry/packages/aws-native/api-docs/logs/loggroup/
-            log_group = aws_native.cloudwatch.LogGroup(
+            log_group = aws_native.logs.LogGroup(
                 f"{name}-logs",
                 log_group_name = f"/aws/events/{name}-logs",
                 retention_in_days = 1
