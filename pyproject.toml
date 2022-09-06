@@ -15,7 +15,6 @@ license = "MIT-0"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-pulumi-aws-native = "^0.25.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
@@ -23,6 +22,7 @@ pylint = "^2.15.0"
 mypy = "^0.971"
 pulumi = "^3.38.0"
 pulumi-aws = "^5.12.1"
+pulumi-aws-native = "^0.27.0"
 
 [tool.pytest.ini_options]
 minversion = "6.0"

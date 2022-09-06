@@ -236,7 +236,7 @@ semver = ">=2.8.1"
 
 [[package]]
 name = "pulumi-aws-native"
-version = "0.25.0"
+version = "0.27.0"
 description = "A native Pulumi package for creating and managing Amazon Web Services (AWS) resources."
 category = "main"
 optional = false
@@ -378,7 +378,7 @@ python-versions = "!=3.0.*,!=3.1.*,!=3.2.*,!=3.3.*,!=3.4.*,>=2.7"
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.9"
-content-hash = "1965c0c8abf1e84bfb6b64af9257f728653e0b6e7a86d6a0ed0b7bd538c2c29b"
+content-hash = "e8c88316fab2f3c8a44e429e5d35a4454bb9135c06be1d5fe4ed336850f2eda5"
 
 [metadata.files]
 arpeggio = [
