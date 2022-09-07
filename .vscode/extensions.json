@@ -1,6 +1,5 @@
 {
     "recommendations": [
-        "oderwat.indent-rainbow",
         "redhat.vscode-yaml",
         "mohsen1.prettify-json",
         "ms-python.python",

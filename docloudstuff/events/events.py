@@ -485,7 +485,7 @@ class Events:
             # https://www.pulumi.com/registry/packages/aws-native/api-docs/logs/loggroup/
             log_group = aws.cloudwatch.LogGroup(
                 f"{name}-logs",
-                log_group_name = f"/aws/events/{name}-logs",
+                name = f"/aws/events/{name}-logs",
                 retention_in_days = 1
             )
 
