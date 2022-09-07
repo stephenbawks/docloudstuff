@@ -154,7 +154,7 @@ class Events:
 
         # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
         rule = aws.cloudwatch.EventRule(
-            f"{name}-EventRule",
+            f"{name}-rule",
             name = name,
             description = description,
             event_bus_name = event_bus_name,
@@ -168,7 +168,7 @@ class Events:
         def general_event():
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
-                f"{name}-RuleTarget",
+                f"{name}-rule-target",
                 arn = target_arn,
                 event_bus_name = event_bus_name,
                 rule = rule.name,
@@ -186,7 +186,7 @@ class Events:
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/lambda/permission/
             aws.lambda_.Permission(
-                f"{name}-LambdaPermission",
+                f"{name}-lambda-permission",
                 action = "lambda:InvokeFunction",
                 function = resource_name,
                 principal = "events.amazonaws.com",
@@ -195,7 +195,7 @@ class Events:
             )
 
             aws.cloudwatch.EventTarget(
-                f"{name}-RuleTarget",
+                f"{name}-rule-tTarget",
                 arn = target_arn,
                 event_bus_name = event_bus_name,
                 rule = rule.arn,
@@ -238,7 +238,7 @@ class Events:
 
                 # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
                 event_bus_role = aws_native.iam.Role(
-                    f"{name}-Role",
+                    f"{name}-role",
                     policies = [aws_native.iam.RolePolicyArgs(
                         policy_name = f"{name}-PutEventBus",
                         policy_document = event_bus_policy.json
@@ -248,7 +248,7 @@ class Events:
 
                 # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
                 aws.cloudwatch.EventTarget(
-                    f"{name}-RuleTarget",
+                    f"{name}-rule-target",
                     arn = target_arn,
                     event_bus_name = event_bus_name,
                     rule = rule.name,
@@ -292,7 +292,7 @@ class Events:
 
                 # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
                 destination_role = aws_native.iam.Role(
-                    f"{name}-Role",
+                    f"{name}-role",
                     policies = [aws_native.iam.RolePolicyArgs(
                         policy_name = f"{name}-InvokeApiDestination",
                         policy_document = api_destination_policy.json
@@ -302,7 +302,7 @@ class Events:
 
                 # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
                 aws.cloudwatch.EventTarget(
-                    f"{name}RuleTarget",
+                    f"{name}-rule-target",
                     arn = target_arn,
                     event_bus_name = event_bus_name,
                     rule = rule.name,
@@ -345,7 +345,7 @@ class Events:
 
             # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
             step_function_role = aws_native.iam.Role(
-                f"{name}-Role",
+                f"{name}-role",
                 policies = [aws_native.iam.RolePolicyArgs(
                     policy_name = f"{name}-InvokeStepFunction",
                     policy_document = step_function_policy.json
@@ -355,7 +355,7 @@ class Events:
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
-                f"{name}-RuleTarget",
+                f"{name}-rule-target",
                 arn = target_arn,
                 event_bus_name = event_bus_name,
                 rule = rule.name,
@@ -398,7 +398,7 @@ class Events:
 
             # https://www.pulumi.com/registry/packages/aws-native/api-docs/iam/role/
             kinesis_role = aws_native.iam.Role(
-                f"{name}-Role",
+                f"{name}-role",
                 policies = [aws_native.iam.RolePolicyArgs(
                     policy_name = f"{name}-InvokePutRecordStream",
                     policy_document = kinesis_stream_policy.json
@@ -408,7 +408,7 @@ class Events:
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
-                f"{name}RuleTarget",
+                f"{name}-rule-target",
                 arn = target_arn,
                 event_bus_name = event_bus_name,
                 rule = rule.name,
@@ -462,7 +462,7 @@ class Events:
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
-                f"{name}-RuleTarget",
+                f"{name}-rule-target",
                 arn = target_arn,
                 event_bus_name = event_bus_name,
                 rule = rule.name,
@@ -483,7 +483,7 @@ class Events:
             print("Logs Target --> Creating Cloudwatch Log Group")
 
             # https://www.pulumi.com/registry/packages/aws-native/api-docs/logs/loggroup/
-            log_group = aws_native.logs.LogGroup(
+            log_group = aws.cloudwatch.LogGroup(
                 f"{name}-logs",
                 log_group_name = f"/aws/events/{name}-logs",
                 retention_in_days = 1
@@ -491,7 +491,7 @@ class Events:
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
-                f"{name}-LogsRuleTarget",
+                f"{name}-logs-rule-target",
                 arn = log_group.arn,
                 event_bus_name = event_bus_name,
                 rule = rule.name,
