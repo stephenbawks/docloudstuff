@@ -131,7 +131,6 @@ class Events:
             optional_log_group (Optional[bool]): True or False.  If True, this will create a Cloudwatch Log group that can be used to troubleshoot event data.  Ideally used for debug and troubleshooting.
 
         """
-
         resource_name = aws.get_arn(arn=target_arn).resource
         resource_type = aws.get_arn(arn=target_arn).service
 
@@ -515,3 +514,40 @@ class Events:
         }
 
         event_dict.get(resource_type, general_event)()
+
+    @classmethod
+    def create_logs_reource_policy(cls,
+        name: str
+    ):
+
+        account_id = aws.get_caller_identity().account_id
+        region = aws.get_region().name
+
+        # https://www.pulumi.com/registry/packages/aws/api-docs/iam/getpolicydocument/
+        eventbridge_to_cloudwatch_logs = aws.iam.get_policy_document(
+            statements=[
+                aws.iam.GetPolicyDocumentStatementArgs(
+                    sid=name,
+                    actions = [
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents"
+                    ],
+                    principals=[
+                        aws.iam.GetPolicyDocumentStatementPrincipalArgs(
+                            type="Service",
+                            identifiers=[
+                                "events.amazonaws.com",
+                                "delivery.logs.amazonaws.com"
+                            ],
+                        )
+                    ],
+                    resources = [f"arn:aws:logs:{region}:{account_id}:log-group:/aws/events/*:*"],
+                )
+            ]
+        )
+
+        aws.cloudwatch.LogResourcePolicy(
+            f"{name}-cloudwatch-resource-policy",
+            policy_name=name,
+            policy_document=eventbridge_to_cloudwatch_logs.json,
+        )
