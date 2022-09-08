@@ -519,6 +519,15 @@ class Events:
     def create_logs_reource_policy(cls,
         name: str
     ):
+        """
+            When CloudWatch Logs is the target of a rule, EventBridge creates log streams, and
+            CloudWatch Logs stores the text from the events as log entries. To allow EventBridge to
+            create the log stream and log the events, CloudWatch Logs must include a resource-based
+            policy that enables EventBridge to write to CloudWatch Logs.
+
+        Args:
+            name (str): Name that will be used to create the resource policy
+        """
 
         account_id = aws.get_caller_identity().account_id
         region = aws.get_region().name
