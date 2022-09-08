@@ -525,6 +525,9 @@ class Events:
             create the log stream and log the events, CloudWatch Logs must include a resource-based
             policy that enables EventBridge to write to CloudWatch Logs.
 
+        URLs:
+            https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-use-resource-based.html#eb-cloudwatchlogs-permissions
+
         Args:
             name (str): Name that will be used to create the resource policy
         """
