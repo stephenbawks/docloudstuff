@@ -516,7 +516,7 @@ class Events:
         event_dict.get(resource_type, general_event)()
 
     @classmethod
-    def create_logs_reource_policy(cls,
+    def create_events_logs_reource_policy(cls,
         name: str
     ):
         """
@@ -534,6 +534,13 @@ class Events:
 
         account_id = aws.get_caller_identity().account_id
         region = aws.get_region().name
+
+        resource_policy = aws.cloudwatch.LogResourcePolicy.get("resource_policy_lookup",
+            id=name
+        )
+
+        print(resource_policy.policy_name)
+        print(resource_policy.policy_document)
 
         # https://www.pulumi.com/registry/packages/aws/api-docs/iam/getpolicydocument/
         eventbridge_to_cloudwatch_logs = aws.iam.get_policy_document(
