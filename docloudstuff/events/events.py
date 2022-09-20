@@ -65,24 +65,21 @@ class Events:
             ValueError: Days for retention must be greater than or equal to 0
         """
 
-        if event_archive and event_archive < 0:
-            # If intending to create an event archive check to make sure days is not less than zero
+        if event_archive and archive_days < 0:
             raise ValueError("Days for Archive Retention must be greater than or equal to 0 (zero).")
-        if event_archive and event_archive == 0:
-            # if intending to create an archive, warn if days is equal to zero
+        if event_archive and archive_days == 0:
             print("You enterd 0 (zero) for the amount of days to retain messages in the archive. This will result in events being stored indefinitely so use caution.")
 
         # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventbus/
         bus = aws.cloudwatch.EventBus(f"{name}-bus")
-
         pulumi.export(f"{name}-bus-arn", bus.arn)
 
         if event_archive:
             if isinstance(archive_event_pattern, dict):
-                # Checking to see if the archive pattern was sent as a dict, if so dump to string
                 print("The archive event pattern is a dictionary and will be converted to a string.")
                 archive_event_pattern = json.dumps(archive_event_pattern)
 
+            # https://www.pulumi.com/registry/packages/aws-native/api-docs/events/archive/
             event_archive = aws_native.events.Archive(f"{name}-event-archive",
                 description=f"Archived events from {name}-bus",
                 event_source_arn=bus.arn,
@@ -90,7 +87,6 @@ class Events:
                 event_pattern=archive_event_pattern,
                 opts = pulumi.ResourceOptions(parent=bus)
             )
-
             pulumi.export(f"{name}-event-archive-arn", event_archive.arn)
 
         if schema_discoverer:
@@ -99,8 +95,9 @@ class Events:
                 source_arn=bus.arn,
                 description=f"Schema Discover for the {name}-bus",
             )
-
             pulumi.export(f"{name}-schema-discoverer-arn", bus_schema_discoverer.arn)
+
+        return bus.name
 
 
     @classmethod
@@ -151,20 +148,18 @@ class Events:
             # If so, do a json dump to string
             event_pattern = Events._dict_to_json(value=event_pattern, value_name="event_pattern")
 
-        # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
-        rule = aws.cloudwatch.EventRule(
-            f"{name}-rule",
-            name = name,
-            description = description,
-            event_bus_name = event_bus_name,
-            is_enabled = True,
-            event_pattern = event_pattern
-        )
-
-        pulumi.export(f"{name}-rule-arn", rule.arn)
-
-
         def general_event():
+            # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
+            rule = aws.cloudwatch.EventRule(
+                f"{name}-rule",
+                name = name,
+                description = description,
+                event_bus_name = event_bus_name,
+                is_enabled = True,
+                event_pattern = event_pattern
+            )
+            pulumi.export(f"{name}-rule-arn", rule.arn)
+
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
                 f"{name}-rule-target",
@@ -179,9 +174,22 @@ class Events:
                 opts = pulumi.ResourceOptions(parent=rule)
             )
 
+            return rule.arn
+
         def create_lambda_event():
             # Additional Logic for Lambda as a Target
             print("Lambda Target --> Adding Lambda Invoke Permission")
+
+            # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
+            rule = aws.cloudwatch.EventRule(
+                f"{name}-rule",
+                name = name,
+                description = description,
+                event_bus_name = event_bus_name,
+                is_enabled = True,
+                event_pattern = event_pattern
+            )
+            pulumi.export(f"{name}-rule-arn", rule.arn)
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/lambda/permission/
             aws.lambda_.Permission(
@@ -206,12 +214,25 @@ class Events:
                 opts = pulumi.ResourceOptions(parent=rule)
             )
 
+            return rule.arn
+
         def create_events_event():
 
             # This could be an API Destination or trying to send to another Eventbridge
             if resource_name.startswith("event-bus"):
                 # Additional Logic for another Event Bus as a Target
                 print("Event Bus Target --> Creating IAM Role")
+
+                # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
+                rule = aws.cloudwatch.EventRule(
+                    f"{name}-rule",
+                    name = name,
+                    description = description,
+                    event_bus_name = event_bus_name,
+                    is_enabled = True,
+                    event_pattern = event_pattern
+                )
+                pulumi.export(f"{name}-rule-arn", rule.arn)
 
                 assume_role_policy = aws.iam.get_policy_document(statements=[
                     aws.iam.GetPolicyDocumentStatementArgs(
@@ -244,6 +265,7 @@ class Events:
                     )],
                     assume_role_policy_document = assume_role_policy.json
                 )
+                pulumi.export(f"{name}-iam-role-arn", event_bus_role.arn)
 
                 # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
                 aws.cloudwatch.EventTarget(
@@ -260,12 +282,23 @@ class Events:
                     opts = pulumi.ResourceOptions(parent=rule)
                 )
 
-                pulumi.export(f"{name}-iam-role-arn", event_bus_role.arn)
+                return rule.arn
 
             else:
                 # Additional Logic for API Destination as a Target
                 print("API Destination Target --> Creating IAM Role")
                 print("API Destination Target --> Adding Invoke API Permission")
+
+                # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
+                rule = aws.cloudwatch.EventRule(
+                    f"{name}-rule",
+                    name = name,
+                    description = description,
+                    event_bus_name = event_bus_name,
+                    is_enabled = True,
+                    event_pattern = event_pattern
+                )
+                pulumi.export(f"{name}-rule-arn", rule.arn)
 
                 assume_role_policy = aws.iam.get_policy_document(statements=[
                     aws.iam.GetPolicyDocumentStatementArgs(
@@ -298,6 +331,7 @@ class Events:
                     )],
                     assume_role_policy_document = assume_role_policy.json
                 )
+                pulumi.export(f"{name}-iam-role-arn", destination_role.arn)
 
                 # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
                 aws.cloudwatch.EventTarget(
@@ -314,11 +348,22 @@ class Events:
                     opts = pulumi.ResourceOptions(parent=rule)
                 )
 
-                pulumi.export(f"{name}-iam-role-arn", destination_role.arn)
+                return rule.arn
 
         def create_step_function_event():
             # Additional Logic for Lambda as a Target
             print("Step Function Target --> Invoke State Machine")
+
+            # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
+            rule = aws.cloudwatch.EventRule(
+                f"{name}-rule",
+                name = name,
+                description = description,
+                event_bus_name = event_bus_name,
+                is_enabled = True,
+                event_pattern = event_pattern
+            )
+            pulumi.export(f"{name}-rule-arn", rule.arn)
 
             assume_role_policy = aws.iam.get_policy_document(statements=[
                 aws.iam.GetPolicyDocumentStatementArgs(
@@ -351,6 +396,7 @@ class Events:
                 )],
                 assume_role_policy_document = assume_role_policy.json
             )
+            pulumi.export(f"{name}-iam-role-arn", step_function_role.arn)
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
@@ -367,11 +413,22 @@ class Events:
                 opts = pulumi.ResourceOptions(parent=rule)
             )
 
-            pulumi.export(f"{name}-iam-role-arn", step_function_role.arn)
+            return rule.arn
 
         def create_kinesis_stream_event():
             # Additional Logic for Kinesis Stream as a Target
             print("Kinesis Stream Target --> Put Record on Kinesis Stream")
+
+            # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
+            rule = aws.cloudwatch.EventRule(
+                f"{name}-rule",
+                name = name,
+                description = description,
+                event_bus_name = event_bus_name,
+                is_enabled = True,
+                event_pattern = event_pattern
+            )
+            pulumi.export(f"{name}-rule-arn", rule.arn)
 
             assume_role_policy = aws.iam.get_policy_document(statements=[
                 aws.iam.GetPolicyDocumentStatementArgs(
@@ -404,6 +461,7 @@ class Events:
                 )],
                 assume_role_policy_document = assume_role_policy.json
             )
+            pulumi.export(f"{name}-iam-role-arn", kinesis_role.arn)
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventtarget/
             aws.cloudwatch.EventTarget(
@@ -420,13 +478,24 @@ class Events:
                 opts = pulumi.ResourceOptions(parent=rule)
             )
 
-            pulumi.export(f"{name}-iam-role-arn", kinesis_role.arn)
+            return rule.arn
 
         def create_queue_event():
             # Additional Logic for Lambda as a Target
             print("SQS Target --> Adding Queue Policy")
 
-            queue_url = aws.sqs.get_queue(name=resource_name).url
+            sqs_queue = aws.sqs.get_queue(name=resource_name)
+
+            # https://www.pulumi.com/registry/packages/aws/api-docs/cloudwatch/eventrule/
+            rule = aws.cloudwatch.EventRule(
+                f"{name}-rule",
+                name = name,
+                description = description,
+                event_bus_name = event_bus_name,
+                is_enabled = True,
+                event_pattern = event_pattern
+            )
+            pulumi.export(f"{name}-rule-arn", rule.arn)
 
             # https://www.pulumi.com/registry/packages/aws/api-docs/iam/getpolicydocument/
             queue_policy = aws.iam.get_policy_document(
@@ -454,7 +523,7 @@ class Events:
             # https://www.pulumi.com/registry/packages/aws/api-docs/sqs/queuepolicy/
             aws.sqs.QueuePolicy(
                 f"{name}-queue-policy",
-                queue_url=queue_url,
+                queue_url=sqs_queue.url,
                 policy=queue_policy.json,
                 opts = pulumi.ResourceOptions(parent=rule)
             )
@@ -472,6 +541,8 @@ class Events:
                 ),
                 opts = pulumi.ResourceOptions(parent=rule)
             )
+
+            return rule.arn
 
         # Conditional add a Cloudwatch Log group and output events to it
         # This is typically only recommended for troubleshooting and not
@@ -501,7 +572,6 @@ class Events:
                 ),
                 opts = pulumi.ResourceOptions(parent=log_group)
             )
-
             pulumi.export(f"{name}-logs-arn", log_group.arn)
 
         # Dictionary used to figure out what type of event and what needs to be run
@@ -512,7 +582,6 @@ class Events:
             "kinesis": create_kinesis_stream_event,
             "sqs": create_queue_event
         }
-
         event_dict.get(resource_type, general_event)()
 
     @classmethod
@@ -539,8 +608,8 @@ class Events:
             id=name
         )
 
-        print(resource_policy.policy_name)
-        print(resource_policy.policy_document)
+        # print(resource_policy.policy_name)
+        # print(resource_policy.policy_document)
 
         # https://www.pulumi.com/registry/packages/aws/api-docs/iam/getpolicydocument/
         eventbridge_to_cloudwatch_logs = aws.iam.get_policy_document(
@@ -565,8 +634,9 @@ class Events:
             ]
         )
 
-        aws.cloudwatch.LogResourcePolicy(
+        cloudwatch_resource_policy = aws.cloudwatch.LogResourcePolicy(
             f"{name}-cloudwatch-resource-policy",
             policy_name=name,
             policy_document=eventbridge_to_cloudwatch_logs.json,
         )
+        return cloudwatch_resource_policy.policy_name
