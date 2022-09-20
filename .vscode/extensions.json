@@ -1,0 +1,10 @@
+{
+    "recommendations": [
+        "redhat.vscode-yaml",
+        "mohsen1.prettify-json",
+        "ms-python.python",
+        "DavidAnson.vscode-markdownlint",
+        "ms-vscode.makefile-tools",
+        "njpwerner.autodocstring"
+    ]
+}
